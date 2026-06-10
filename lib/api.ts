@@ -9,63 +9,40 @@ export type MpesaNotification = {
   transaction_type: string | null;
 };
 
-//const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "https://traderiserproapp.onrender.com";
-const TOKEN_KEY = process.env.NEXT_PUBLIC_TOKEN_KEY || "access_token";
+const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
 
-// Auto-sync token from URL when Messages app is opened from main app
-function syncTokenFromUrl() {
+const TOKEN_KEY = "access_token";
+
+// Sync phone from URL
+function syncParamsFromUrl() {
   if (typeof window === "undefined") return;
-
   const urlParams = new URLSearchParams(window.location.search);
-  const tokenFromUrl = urlParams.get("token");
-
-  if (tokenFromUrl) {
-    localStorage.setItem(TOKEN_KEY, tokenFromUrl);
-    console.log("[Auth] ✅ Token successfully synced from URL");
-
-    // Clean URL (remove token from address bar)
-    const newUrl = window.location.pathname + 
-      (urlParams.get("phone") ? `?phone=${urlParams.get("phone")}` : "");
-    
+  const phone = urlParams.get("phone");
+  if (phone) {
+    console.log(`[Auth] Phone from URL: ${phone}`);
+    const newUrl = window.location.pathname + `?phone=${encodeURIComponent(phone)}`;
     window.history.replaceState({}, document.title, newUrl);
   }
 }
-
-// Run token sync immediately when this module loads
-syncTokenFromUrl();
+syncParamsFromUrl();
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-
-  // 1. Try localStorage first
-  let token = localStorage.getItem(TOKEN_KEY);
-
-  // 2. Fallback: Check URL (in case sync didn't run yet)
-  if (!token) {
-    const urlParams = new URLSearchParams(window.location.search);
-    token = urlParams.get("token");
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-      console.log("[Auth] ✅ Token found in URL and saved");
-    }
-  }
-
-  return token;
+  return localStorage.getItem(TOKEN_KEY);
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
 
-  // Clean path - make sure it starts with /api/
-  let cleanPath = path;
-  if (!path.startsWith('/api/')) {
-    cleanPath = `/api${path.startsWith('/') ? '' : '/'}${path}`;
+  // Force correct full path
+  let fullPath = path;
+  if (!path.startsWith('/api/mpesa-notif/')) {
+    fullPath = `/api/mpesa-notif${path.startsWith('/') ? '' : '/'}${path}`;
   }
 
-  const url = `${BASE}${cleanPath}`;
+  const url = `${BASE}${fullPath}`;
 
-  console.log(`[API] → ${url} | Token: ${token ? "Present" : "❌ MISSING"}`);
+  console.log(`[API] → ${url} | Token: ${token ? "✅" : "❌"}`);
 
   const res = await fetch(url, {
     ...init,
@@ -79,12 +56,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    console.error(`[API Error] ${res.status} ${url} - ${text}`);
-    
+    console.error(`[API Error] ${res.status} ${url}`, text);
+
     if (res.status === 401) {
-      console.error("[Auth] Unauthorized - Token missing or invalid");
+      console.error("[Auth] Token invalid - clearing");
+      localStorage.removeItem(TOKEN_KEY);
+      if (typeof window !== "undefined") window.location.reload();
     }
-    
     throw new Error(`${res.status}: ${text || res.statusText}`);
   }
 
@@ -92,7 +70,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  listNotifications: () => request<MpesaNotification[]>("/mpesa-notif/notifications/"),
+  listNotifications: () => request<MpesaNotification[]>("/notifications/"),
   markRead: (id: number) =>
-    request<{ status: string }>(`/mpesa-notif/notifications/${id}/read/`, { method: "POST" }),
+    request<{ status: string }>(`/notifications/${id}/read/`, { method: "POST" }),
 };

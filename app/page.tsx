@@ -1,33 +1,91 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useNotificationPopup } from "@/components/NotificationProvider";
+import { useSearchParams } from "next/navigation";
+import axios from "axios";
 
 function formatWhen(iso: string) {
   const d = new Date(iso);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  const yest = new Date(now); 
+  const yest = new Date(now);
   yest.setDate(now.getDate() - 1);
-  
+
   if (sameDay) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   if (d.toDateString() === yest.toDateString()) return "Yesterday";
   return d.toLocaleDateString([], { weekday: "long" });
 }
 
-export default function MessagesPage() {
+// Inner component that uses useSearchParams
+function MessagesContent() {
+  const searchParams = useSearchParams();
+  const phoneFromUrl = searchParams.get("phone");
+
+  const [phone, setPhone] = useState(phoneFromUrl || "");
+  const [pin, setPin] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [showLogin, setShowLogin] = useState(true);
+  const [error, setError] = useState("");
+
   const { popNotification } = useNotificationPopup();
-  const { items, loading, error } = useNotifications((n) => {
+  const { items, loading, error: notifError } = useNotifications((n) => {
     popNotification(n);
   });
+
+  useEffect(() => {
+    if (items.length > 0) {
+      setShowLogin(false);
+    }
+  }, [items]);
+
+  useEffect(() => {
+    if (phoneFromUrl) setPhone(phoneFromUrl);
+  }, [phoneFromUrl]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || pin.length !== 4) {
+      setError("Please enter phone number and 4-digit PIN");
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setError("");
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      
+      const response = await axios.post(
+        `${apiUrl}/api/mpesa-notif/login/`,
+        { phone_number: phone, pin },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (response.data.access) {
+        localStorage.setItem("access_token", response.data.access);
+        if (response.data.refresh) {
+          localStorage.setItem("refresh_token", response.data.refresh);
+        }
+        setShowLogin(false);
+        setError("");
+        alert("Login successful!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.response?.data?.error || "Invalid phone number or PIN. Please try again.");
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
 
   const threads = useMemo(() => {
     if (items.length === 0) return [];
     const latest = items[0];
     const unreadCount = items.filter((n) => !n.is_read).length;
-    
+
     return [
       {
         id: "mpesa",
@@ -39,9 +97,63 @@ export default function MessagesPage() {
     ];
   }, [items]);
 
+  if (showLogin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-black px-5">
+        <div className="w-full max-w-[380px]">
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold text-white">Messages</h1>
+            <p className="text-white/60 mt-2">Sign in to view your M-Pesa notifications</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div>
+              <label className="text-white/70 text-sm block mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                placeholder="254712345678"
+                className="w-full bg-[#1C1C1E] border border-white/10 rounded-2xl px-5 py-4 text-white text-lg"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="text-white/70 text-sm block mb-2">4-Digit PIN</label>
+              <input
+                type="password"
+                maxLength={4}
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="••••"
+                className="w-full bg-[#1C1C1E] border border-white/10 rounded-2xl px-5 py-4 text-white text-2xl tracking-widest text-center"
+                required
+              />
+            </div>
+
+            {error && <p className="text-red-400 text-center text-sm">{error}</p>}
+
+            <button
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 py-4 rounded-2xl text-white font-semibold text-lg transition"
+            >
+              {isLoggingIn ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+
+          <p className="text-center text-white/50 text-sm mt-8">
+            Use the same 4-digit PIN you set when connecting M-Pesa
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Messages UI
   return (
     <main className="min-h-screen pb-24">
-      {/* iOS header */}
       <div className="pt-[max(env(safe-area-inset-top),20px)] px-5">
         <div className="flex items-center justify-between">
           <button className="px-3 py-1.5 rounded-full bg-[#1C1C1E] text-[15px] text-white/90">
@@ -56,17 +168,17 @@ export default function MessagesPage() {
         <h1 className="mt-3 text-[34px] font-bold tracking-tight">Messages</h1>
       </div>
 
-      {error && (
+      {notifError && (
         <div className="mx-5 mt-4 p-3 rounded-xl bg-red-900/30 text-red-200 text-sm">
-          {error}
+          {notifError}
         </div>
       )}
 
       <ul className="mt-4">
         {loading && items.length === 0 && (
-          <li className="px-5 py-6 text-white/40 text-sm">Loading…</li>
+          <li className="px-5 py-6 text-white/40 text-sm">Loading messages…</li>
         )}
-        {!loading && threads.length === 0 && !error && (
+        {!loading && threads.length === 0 && !notifError && (
           <li className="px-5 py-6 text-white/40 text-sm">No messages yet.</li>
         )}
 
@@ -125,5 +237,14 @@ export default function MessagesPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+// Main exported component with Suspense boundary
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black text-white">Loading Messages...</div>}>
+      <MessagesContent />
+    </Suspense>
   );
 }
