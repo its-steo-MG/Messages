@@ -56,7 +56,8 @@ function MessagesContent() {
     setError("");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      //const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://traderiserproapp.onrender.com";
       
       const response = await axios.post(
         `${apiUrl}/api/mpesa-notif/login/`,
