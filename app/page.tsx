@@ -35,18 +35,14 @@ function MessagesContent() {
     popNotification(n);
   });
 
-  // Auto-hide login when we have notifications
   useEffect(() => {
-    if (items && items.length > 0) {
+    if (items.length > 0) {
       setShowLogin(false);
     }
   }, [items]);
 
-  // Pre-fill phone from URL
   useEffect(() => {
-    if (phoneFromUrl) {
-      setPhone(phoneFromUrl);
-    }
+    if (phoneFromUrl) setPhone(phoneFromUrl);
   }, [phoneFromUrl]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -73,23 +69,20 @@ function MessagesContent() {
         if (response.data.refresh) {
           localStorage.setItem("refresh_token", response.data.refresh);
         }
-
         setShowLogin(false);
         setError("");
-        alert("✅ Login successful!");
+        alert("Login successful!");
       }
     } catch (err: any) {
       console.error(err);
-      setError(
-        err.response?.data?.error || "Invalid phone number or PIN. Please try again."
-      );
+      setError(err.response?.data?.error || "Invalid phone number or PIN. Please try again.");
     } finally {
       setIsLoggingIn(false);
     }
   };
 
   const threads = useMemo(() => {
-    if (!items || items.length === 0) return [];
+    if (items.length === 0) return [];
     const latest = items[0];
     const unreadCount = items.filter((n) => !n.is_read).length;
 
@@ -161,7 +154,6 @@ function MessagesContent() {
   // Main Messages UI
   return (
     <main className="min-h-screen pb-24">
-      {/* iOS header */}
       <div className="pt-[max(env(safe-area-inset-top),20px)] px-5">
         <div className="flex items-center justify-between">
           <button className="px-3 py-1.5 rounded-full bg-[#1C1C1E] text-[15px] text-white/90">
@@ -251,11 +243,7 @@ function MessagesContent() {
 // Main exported component with Suspense boundary
 export default function MessagesPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-black text-white">
-        Loading Messages...
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black text-white">Loading Messages...</div>}>
       <MessagesContent />
     </Suspense>
   );
