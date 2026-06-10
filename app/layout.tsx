@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import NotificationProvider from "@/components/NotificationProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Messages",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className="font-sf bg-black text-white min-h-screen">
         <NotificationProvider>{children}</NotificationProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
