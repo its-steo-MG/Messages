@@ -9,7 +9,8 @@ export type MpesaNotification = {
   transaction_type: string | null;
 };
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+//const BASE = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+const BASE = process.env.NEXT_PUBLIC_API_BASE || "https://traderiserproapp.onrender.com";
 const TOKEN_KEY = process.env.NEXT_PUBLIC_TOKEN_KEY || "access_token";
 
 // Auto-sync token from URL when Messages app is opened from main app

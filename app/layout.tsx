@@ -4,7 +4,7 @@ import NotificationProvider from "@/components/NotificationProvider";
 
 export const metadata: Metadata = {
   title: "Messages",
-  description: "Messages",
+  description: "M-Pesa Messages",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
