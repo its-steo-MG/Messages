@@ -1,5 +1,5 @@
 {
-  "name": "MPESA Messages",
+  "name": "Messages",
   "short_name": "Messages",
   "description": "iOS-style M-Pesa SMS notifications",
   "start_url": "/",
